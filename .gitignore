@@ -1,0 +1,25 @@
+# Environment
+.env
+
+# FAISS index cache (large binary files, rebuilt on first run)
+.faiss_cache/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# macOS
+.DS_Store
+
+# PDF input files (large, not needed for reproducibility)
+small_input_deepsake/
+
+# Notebook outputs (optional — remove these lines if you want to keep outputs)
+# *.ipynb  # uncomment to exclude all notebooks
