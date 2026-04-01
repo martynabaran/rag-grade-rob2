@@ -40,18 +40,19 @@ Chrome must be installed (Selenium uses it for JS-rendered pages). `webdriver-ma
 
 Three-step pipeline with no agent framework:
 ```
-scrape_and_chunk(urls) → build_index(docs) → rag_answer(query, index, llm)
+scrape_and_chunk(urls) or load_pdfs_and_chunk(pdf_paths) → build_index(docs) → rag_answer(query, index, llm)
 ```
 
 Key functions:
 - `fetch_visible_text(url)` — headless Chrome + BeautifulSoup, handles JS-rendered pages
-- `load_or_build_index(urls, cache_path)` — builds FAISS index and saves to disk; loads from cache on subsequent runs (cache stored in `.faiss_cache/grade/` and `.faiss_cache/rob2/`)
+- `load_or_build_index(urls, cache_path, parsed_pdf_cache_dir=...)` — builds FAISS index and saves to disk; loads from cache on subsequent runs (FAISS cache stored in `.faiss_cache/grade/` and `.faiss_cache/rob2/`)
+- `load_pdfs_and_chunk(pdf_paths, parsed_cache_dir=...)` — parses PDFs to `Document`s and stores per-PDF JSON cache files; reparses only when a PDF is new or modified
 - `rag_answer(query, index, llm, k=5)` — returns `(answer, contexts)` tuple; `contexts` is the list of retrieved chunk strings needed for RAGAS evaluation
 - `build_llm()` — constructs `ChatOpenAI` pointed at OpenRouter from env vars
 
 ### Chatbot Notebooks (`grade_rag.ipynb`, `rob2_rag.ipynb`)
 
-Each notebook defines a domain-specific system prompt and URL list, then exposes two functions used by all evaluation notebooks:
+Each notebook defines a domain-specific system prompt and source list (web URLs and/or PDF paths), then exposes two functions used by all evaluation notebooks:
 - `ask_<domain>(question)` → answer string
 - `get_<domain>_contexts(question, k)` → list of retrieved chunk strings
 
@@ -80,7 +81,8 @@ Evaluation CSVs follow the naming pattern `{metric_type}_{chat_model}_{eval_mode
 ## Key Design Decisions
 
 - **No LangGraph** — the original agentic architecture (4-node state graph) was replaced with plain function calls in `rag_core.py`. Do not re-introduce LangGraph.
-- **No GROBID/Docker** — PDF figure extraction was removed; the system is guidelines-only. Do not add `scipdf` dependencies.
+- **No LangGraph-era PDF figure pipeline** — the old GROBID/figure-extraction path is not part of the new architecture. Keep the new PDF support focused on text parsing to `Document`s plus cacheable JSON outputs.
 - **FAISS cache** — scraping is slow (~5–8 s/page). Always pass `cache_path` to `load_or_build_index()` so the index is not rebuilt on every run.
+- **Parsed PDF cache** — store parsed PDF JSON outputs in a separate folder and pass it as `parsed_pdf_cache_dir` so only new or modified PDFs are reparsed.
 - **OpenRouter** — all LLM calls go through `https://openrouter.ai/api/v1`. Model names use OpenRouter format (`provider/model-name`).
 - **Chunk size** — default 800 chars with 100-char overlap in `rag_core.chunk_text()`. Adjust via `scrape_and_chunk(urls, chunk_size=..., overlap=...)`.
