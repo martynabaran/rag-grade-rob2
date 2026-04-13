@@ -20,8 +20,8 @@ venv/
 
 # PDF input files (large, not needed for reproducibility)
 small_input_deepsake/
-grade_pdfs/
-rob2_pdfs/
+# grade_pdfs/
+# rob2_pdfs/
 
 # Notebook outputs (optional — remove these lines if you want to keep outputs)
 # *.ipynb  # uncomment to exclude all notebooks
