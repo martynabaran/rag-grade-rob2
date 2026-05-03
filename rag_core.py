@@ -118,6 +118,66 @@ def _parsed_pdf_cache_path(
     return parsed_cache_dir / f"{pdf_path.stem}.json"
 
 
+def _index_state_path(cache_path: str | os.PathLike[str]) -> Path:
+    return Path(cache_path) / "source_state.json"
+
+
+def _build_source_state(
+    urls: list[str] | None = None,
+    pdf_paths: list[str] | list[os.PathLike[str]] | None = None,
+) -> dict:
+    return {
+        "urls": list(urls or []),
+        "pdfs": [str(Path(pdf_path)) for pdf_path in (pdf_paths or [])],
+    }
+
+
+def _save_source_state(cache_path: str | os.PathLike[str], state: dict) -> None:
+    state_path = _index_state_path(cache_path)
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    state_path.write_text(json.dumps(state, ensure_ascii=True, indent=2))
+
+
+def _load_source_state(cache_path: str | os.PathLike[str]) -> dict | None:
+    state_path = _index_state_path(cache_path)
+    if not state_path.exists():
+        return None
+    return json.loads(state_path.read_text())
+
+
+def _classify_index_cache_state(
+    cache_path: str | os.PathLike[str],
+    urls: list[str] | None = None,
+    pdf_paths: list[str] | list[os.PathLike[str]] | None = None,
+) -> tuple[str, list[str]]:
+    cache_dir = Path(cache_path)
+    if not cache_dir.is_dir():
+        return "missing", []
+
+    saved_state = _load_source_state(cache_dir)
+    if saved_state is None:
+        return "rebuild", []
+
+    current_state = _build_source_state(urls=urls, pdf_paths=pdf_paths)
+    if saved_state == current_state:
+        return "current", []
+
+    if saved_state.get("urls", []) != current_state.get("urls", []):
+        return "rebuild", []
+
+    saved_pdfs = saved_state.get("pdfs", [])
+    current_pdfs = current_state.get("pdfs", [])
+
+    if any(pdf_path not in current_pdfs for pdf_path in saved_pdfs):
+        return "rebuild", []
+
+    new_pdfs = [pdf_path for pdf_path in current_pdfs if pdf_path not in saved_pdfs]
+    if new_pdfs:
+        return "append", new_pdfs
+
+    return "rebuild", []
+
+
 def _is_pdf_cache_stale(
     pdf_path: str | os.PathLike[str],
     cache_path: str | os.PathLike[str],
@@ -346,13 +406,43 @@ def load_or_build_index(
 ) -> FAISS:
     """
     Build the index (optionally saving/loading a local FAISS cache).
-    If cache_path exists, load from disk; otherwise scrape + build + save.
+    If the cache matches current sources, load it.
+    If only new PDFs were added, append them to the existing index.
+    Otherwise rebuild from scratch.
     """
-    if cache_path and os.path.isdir(cache_path):
-        print(f"Loading index from cache: {cache_path}")
-        return FAISS.load_local(
-            cache_path, get_embeddings(), allow_dangerous_deserialization=True
+    if cache_path:
+        cache_status, new_pdf_paths = _classify_index_cache_state(
+            cache_path,
+            urls=urls,
+            pdf_paths=pdf_paths,
         )
+
+        if cache_status == "current":
+            print(f"Loading index from cache: {cache_path}")
+            return FAISS.load_local(
+                cache_path, get_embeddings(), allow_dangerous_deserialization=True
+            )
+
+        if cache_status == "append":
+            print(f"Loading index from cache: {cache_path}")
+            index = FAISS.load_local(
+                cache_path, get_embeddings(), allow_dangerous_deserialization=True
+            )
+            print(f"Detected {len(new_pdf_paths)} new PDF(s). Updating index...")
+            new_docs = load_pdfs_and_chunk(
+                new_pdf_paths,
+                parsed_cache_dir=parsed_pdf_cache_dir,
+            )
+            if new_docs:
+                index.add_documents(new_docs)
+                index.save_local(cache_path)
+                source_state = _build_source_state(urls=urls, pdf_paths=pdf_paths)
+                _save_source_state(cache_path, source_state)
+                print(f"Index updated and saved to: {cache_path}")
+            return index
+
+        if cache_status == "rebuild":
+            print(f"Cache at {cache_path} is outdated. Rebuilding index...")
 
     print("Building index from scratch...")
     docs: list[Document] = []
@@ -371,6 +461,8 @@ def load_or_build_index(
 
     if cache_path:
         index.save_local(cache_path)
+        source_state = _build_source_state(urls=urls, pdf_paths=pdf_paths)
+        _save_source_state(cache_path, source_state)
         print(f"Index saved to: {cache_path}")
 
     return index
