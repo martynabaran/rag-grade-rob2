@@ -20,6 +20,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+os.environ.setdefault("MODEL_NAME", "google/gemini-2.5-flash")
+
 import gradio as gr
 from langchain_community.vectorstores import FAISS
 
@@ -106,6 +108,7 @@ Answers are grounded strictly in official methodology documentation — no fabri
                     "When can certainty of evidence be rated up?",
                     "What is the difference between imprecision and inconsistency in GRADE?",
                 ],
+                cache_examples=False,
             )
 
         with gr.TabItem("RoB2 Tool"):
@@ -123,6 +126,7 @@ Answers are grounded strictly in official methodology documentation — no fabri
                     "If one domain is rated High, what is the overall bias judgment?",
                     "What are the signalling questions for the randomization domain?",
                 ],
+                cache_examples=False,
             )
 
 if __name__ == "__main__":

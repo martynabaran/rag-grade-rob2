@@ -17,9 +17,6 @@ import json
 from pathlib import Path
 
 from bs4 import BeautifulSoup
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
 
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
@@ -58,6 +55,10 @@ def _extract_authors(authors_raw) -> str:
 
 def fetch_visible_text(url: str, wait_time: int = 5) -> str:
     """Render a JavaScript-heavy page with headless Chrome and return visible text."""
+    from selenium import webdriver
+    from selenium.webdriver.chrome.service import Service
+    from webdriver_manager.chrome import ChromeDriverManager
+
     options = webdriver.ChromeOptions()
     options.add_argument("--headless")
     options.add_argument("--no-sandbox")
