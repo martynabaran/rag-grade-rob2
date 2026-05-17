@@ -1,8 +1,9 @@
 # Environment
 .env
 
-# FAISS index cache (large binary files, rebuilt on first run)
-.faiss_cache/
+# FAISS index cache — tracked so the HF Space can load without rebuilding.
+# To exclude again: uncomment the line below.
+# .faiss_cache/
 
 # Python
 __pycache__/

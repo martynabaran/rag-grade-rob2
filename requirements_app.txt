@@ -1,0 +1,12 @@
+# Minimal dependencies for the Gradio web app (HuggingFace Spaces deployment).
+# Does NOT include Selenium, eval tools (ragas, rouge-score, spacy, etc.) or Jupyter.
+# Rename to requirements.txt in the HF Space repo.
+
+gradio>=4.0
+langchain
+langchain-community
+langchain-openai
+faiss-cpu
+sentence-transformers
+python-dotenv
+beautifulsoup4
