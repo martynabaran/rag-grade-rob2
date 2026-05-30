@@ -512,6 +512,42 @@ def rag_answer(
     return answer, contexts
 
 
+def rag_answer_with_sources(
+    query: str,
+    index: FAISS,
+    llm: ChatOpenAI,
+    k: int = 5,
+    system_prompt: str = SYSTEM_PROMPT,
+) -> tuple[str, list[str], list[str]]:
+    """
+    Like rag_answer but also returns the deduplicated list of source URLs/paths.
+
+    Returns:
+        answer   — the LLM-generated answer string
+        contexts — list of retrieved chunk texts (for evaluation)
+        sources  — deduplicated list of source identifiers from chunk metadata
+    """
+    docs = index.similarity_search(query, k=k)
+    contexts = [doc.page_content for doc in docs]
+    sources = [
+        s for s in dict.fromkeys(
+            doc.metadata.get("source", "") for doc in docs
+        )
+        if s
+    ]
+
+    context_block = "\n\n---\n\n".join(contexts)
+    prompt = (
+        f"{system_prompt}\n\n"
+        f"Context:\n{context_block}\n\n"
+        f"Question: {query}\n\nAnswer:"
+    )
+
+    response = llm.invoke(prompt)
+    answer = response.content if hasattr(response, "content") else str(response)
+    return answer, contexts, sources
+
+
 # ---------------------------------------------------------------------------
 # Convenience: build LLM from env
 # ---------------------------------------------------------------------------
