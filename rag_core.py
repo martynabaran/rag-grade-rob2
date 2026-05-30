@@ -512,22 +512,63 @@ def rag_answer(
     return answer, contexts
 
 
+def _build_history_block(history: list[dict], max_turns: int = 6) -> str:
+    """
+    Format the last `max_turns` messages from Gradio chat history into a
+    plain-text block for inclusion in the LLM prompt.
+
+    Each entry in `history` is {"role": "user"|"assistant", "content": "..."}.
+    Source blocks appended to assistant messages are stripped before inclusion.
+    """
+    if not history:
+        return ""
+    recent = history[-max_turns:]
+    lines = ["Conversation history:"]
+    for msg in recent:
+        role = "User" if msg["role"] == "user" else "Assistant"
+        content = msg["content"]
+        # Strip appended sources block so the LLM sees only the answer text
+        marker = "\n\n---\n📚 **Sources:**"
+        cut = content.find(marker)
+        if cut != -1:
+            content = content[:cut]
+        # Truncate very long turns to keep prompt size reasonable
+        if len(content) > 600:
+            content = content[:600] + "…"
+        lines.append(f"{role}: {content}")
+    return "\n".join(lines)
+
+
 def rag_answer_with_sources(
     query: str,
     index: FAISS,
     llm: ChatOpenAI,
     k: int = 5,
     system_prompt: str = SYSTEM_PROMPT,
+    history: list[dict] | None = None,
 ) -> tuple[str, list[str], list[str]]:
     """
-    Like rag_answer but also returns the deduplicated list of source URLs/paths.
+    Retrieve top-k chunks for `query`, generate an answer, and return sources.
+
+    Args:
+        history: optional Gradio-format message list for multi-turn context.
+                 When provided, recent user turns enrich the FAISS query and
+                 the conversation history is included in the LLM prompt.
 
     Returns:
         answer   — the LLM-generated answer string
         contexts — list of retrieved chunk texts (for evaluation)
         sources  — deduplicated list of source identifiers from chunk metadata
     """
-    docs = index.similarity_search(query, k=k)
+    # Enrich the retrieval query with the last two user turns so follow-up
+    # questions like "What about imprecision?" resolve correctly in FAISS.
+    if history:
+        prior_user = [m["content"] for m in history if m["role"] == "user"][-2:]
+        retrieval_query = " ".join(prior_user + [query])
+    else:
+        retrieval_query = query
+
+    docs = index.similarity_search(retrieval_query, k=k)
     contexts = [doc.page_content for doc in docs]
     sources = [
         s for s in dict.fromkeys(
@@ -537,11 +578,12 @@ def rag_answer_with_sources(
     ]
 
     context_block = "\n\n---\n\n".join(contexts)
-    prompt = (
-        f"{system_prompt}\n\n"
-        f"Context:\n{context_block}\n\n"
-        f"Question: {query}\n\nAnswer:"
-    )
+    history_block = _build_history_block(history or [])
+
+    prompt = f"{system_prompt}\n\n"
+    if history_block:
+        prompt += f"{history_block}\n\n"
+    prompt += f"Context:\n{context_block}\n\nQuestion: {query}\n\nAnswer:"
 
     response = llm.invoke(prompt)
     answer = response.content if hasattr(response, "content") else str(response)
@@ -553,14 +595,20 @@ def rag_answer_with_sources(
 # ---------------------------------------------------------------------------
 
 def build_llm(
+    model_name: str | None = None,
     model_env_var: str = "MODEL_NAME",
     base_url: str = "https://openrouter.ai/api/v1",
     api_key_env_var: str = "OPENROUTER_API_KEY",
     temperature: float = 0.0,
 ) -> ChatOpenAI:
+    """
+    Build a ChatOpenAI instance pointed at OpenRouter.
+
+    Pass `model_name` directly to override the MODEL_NAME env var.
+    """
     return ChatOpenAI(
         base_url=base_url,
         api_key=os.getenv(api_key_env_var),
-        model=os.getenv(model_env_var),
+        model=model_name or os.getenv(model_env_var),
         temperature=temperature,
     )

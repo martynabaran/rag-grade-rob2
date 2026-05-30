@@ -7,8 +7,9 @@ Then open http://127.0.0.1:7860 in your browser.
 
 Features:
   - Per-user session isolation (gr.State, one UUID per browser tab)
+  - Multi-turn conversation context (history passed to retrieval + LLM)
   - Audience selector (radio buttons): Expert / Stakeholder / Layperson
-  - System prompt adapts tone and language to the selected audience
+  - Model selector (radio buttons): 5 models via OpenRouter
   - Source links embedded in every assistant reply
   - Per-message thumbs up / down (hover over any reply to see them)
   - Optional free-text comment saved alongside the rating
@@ -36,15 +37,47 @@ from langchain_community.vectorstores import FAISS
 from rag_core import get_embeddings, rag_answer_with_sources, build_llm
 
 # ---------------------------------------------------------------------------
+# Available models (label shown in UI → OpenRouter model id)
+# ---------------------------------------------------------------------------
+
+MODELS: dict[str, str] = {
+    "⚡ Gemini 2.5 Flash": "google/gemini-2.5-flash",
+    "🔬 Gemini 2.0 Flash Lite": "google/gemini-2.0-flash-lite",
+    "🦙 Llama 3.1 8B": "meta-llama/llama-3.1-8b-instruct",
+    "🌬️ Mistral 7B": "mistralai/mistral-7b-instruct",
+    "🔷 Qwen 2.5 7B": "qwen/qwen-2.5-7b-instruct",
+}
+MODEL_LABELS = list(MODELS.keys())
+MODEL_DEFAULT = "⚡ Gemini 2.5 Flash"
+
+# Cache so we don't recreate the same LLM object on every request
+_llm_cache: dict[str, object] = {}
+
+
+def get_llm(label: str):
+    if label not in _llm_cache:
+        _llm_cache[label] = build_llm(model_name=MODELS[label])
+    return _llm_cache[label]
+
+
+# Pre-warm the default model at startup
+print("Building default LLM...")
+get_llm(MODEL_DEFAULT)
+
+# ---------------------------------------------------------------------------
 # Audience suffixes — appended to any base system prompt
 # ---------------------------------------------------------------------------
 
-AUDIENCE_LABELS = ["🩺 Expert (clinician / researcher)", "📋 Stakeholder (policy / guideline)", "👤 Layperson"]
+AUDIENCE_LABELS = [
+    "🩺 Expert (clinician / researcher)",
+    "📋 Stakeholder (policy / guideline)",
+    "👤 Layperson",
+]
 AUDIENCE_DEFAULT = "🩺 Expert (clinician / researcher)"
 
 AUDIENCE_SUFFIXES = {
     "🩺 Expert (clinician / researcher)": (
-        "\n\nAUDIENCE: You are speaking with a clinician or researcher who is already familiar "
+        "\n\nAUDIENCE: You are speaking with a clinician or researcher already familiar "
         "with evidence-based medicine. Use full technical terminology without simplification "
         "(e.g. PICO, heterogeneity, I², relative risk, confidence interval). "
         "Be concise and precise. Skip introductory explanations of basic concepts."
@@ -89,7 +122,7 @@ ROB2_BASE_PROMPT = (
 )
 
 # ---------------------------------------------------------------------------
-# Load indices and LLM once at startup
+# Load FAISS indices once at startup
 # ---------------------------------------------------------------------------
 
 print("Loading GRADE index...")
@@ -100,8 +133,6 @@ print("Loading RoB2 index...")
 rob2_index = FAISS.load_local(
     ".faiss_cache/rob2", get_embeddings(), allow_dangerous_deserialization=True
 )
-print("Building LLM...")
-llm = build_llm()
 print("Ready — open http://127.0.0.1:7860")
 
 # ---------------------------------------------------------------------------
@@ -116,6 +147,7 @@ def _save_feedback(
     session_id: str,
     domain: str,
     audience: str,
+    model: str,
     question: str,
     answer: str,
     sources: list[str],
@@ -127,6 +159,7 @@ def _save_feedback(
         "session_id": session_id,
         "domain": domain,
         "audience": audience,
+        "model": model,
         "question": question,
         "answer": answer,
         "sources": sources,
@@ -161,25 +194,37 @@ def _format_sources(sources: list[str]) -> str:
 def build_chat_tab(*, domain: str, index, base_prompt: str, examples: list[str]):
     # Per-session state
     session_id = gr.State(lambda: str(uuid.uuid4()))
-    last_qa = gr.State({"question": "", "answer": "", "sources": [], "audience": AUDIENCE_DEFAULT})
+    last_qa = gr.State({
+        "question": "", "answer": "", "sources": [],
+        "audience": AUDIENCE_DEFAULT, "model": MODEL_DEFAULT,
+    })
 
-    # Audience selector — visible at the top, changes apply to the next message
-    audience_radio = gr.Radio(
-        choices=AUDIENCE_LABELS,
-        value=AUDIENCE_DEFAULT,
-        label="👥 Who are you?",
-        info="Select your background — the chatbot will adapt its language accordingly.",
-    )
+    # ---- Selectors --------------------------------------------------------
+    with gr.Row():
+        with gr.Column(scale=1):
+            audience_radio = gr.Radio(
+                choices=AUDIENCE_LABELS,
+                value=AUDIENCE_DEFAULT,
+                label="👥 Who are you?",
+                info="Adapts language and level of detail.",
+            )
+        with gr.Column(scale=1):
+            model_radio = gr.Radio(
+                choices=MODEL_LABELS,
+                value=MODEL_DEFAULT,
+                label="🤖 Model",
+                info="Changes apply from the next message.",
+            )
 
-    # Chatbot
+    # ---- Chatbot ----------------------------------------------------------
     chatbot = gr.Chatbot(
         show_copy_button=True,
-        height=460,
+        height=440,
         type="messages",
         label=f"{domain} Assistant",
     )
 
-    # Message input
+    # ---- Input ------------------------------------------------------------
     with gr.Row():
         msg_box = gr.Textbox(
             placeholder="Type your question and press Enter…",
@@ -191,7 +236,7 @@ def build_chat_tab(*, domain: str, index, base_prompt: str, examples: list[str])
 
     gr.Examples(examples=examples, inputs=msg_box, label="Example questions")
 
-    # Comment + feedback status
+    # ---- Feedback ---------------------------------------------------------
     comment_box = gr.Textbox(
         label="💬 Optional comment on the last reply",
         placeholder="Add a comment before clicking 👍 or 👎 on the message above…",
@@ -199,32 +244,39 @@ def build_chat_tab(*, domain: str, index, base_prompt: str, examples: list[str])
     )
     feedback_status = gr.Markdown("")
 
-    # ---- Event: send message ------------------------------------------------
+    # ---- Event: send message ----------------------------------------------
 
-    def respond(message, history, audience, sid, qa):
+    def respond(message, history, audience, model_label, sid, qa):
         if not message.strip():
             return history, "", qa
 
         system_prompt = _build_prompt(base_prompt, audience)
+        llm = get_llm(model_label)
+
         answer, _ctx, sources = rag_answer_with_sources(
-            message, index, llm, system_prompt=system_prompt
+            message, index, llm,
+            system_prompt=system_prompt,
+            history=history,          # ← conversation context
         )
         full_answer = answer + _format_sources(sources)
-        history = history + [
+        new_history = history + [
             {"role": "user", "content": message},
             {"role": "assistant", "content": full_answer},
         ]
-        new_qa = {"question": message, "answer": answer, "sources": sources, "audience": audience}
-        return history, "", new_qa
+        new_qa = {
+            "question": message, "answer": answer, "sources": sources,
+            "audience": audience, "model": model_label,
+        }
+        return new_history, "", new_qa
 
     for trigger in (send_btn.click, msg_box.submit):
         trigger(
             respond,
-            inputs=[msg_box, chatbot, audience_radio, session_id, last_qa],
+            inputs=[msg_box, chatbot, audience_radio, model_radio, session_id, last_qa],
             outputs=[chatbot, msg_box, last_qa],
         )
 
-    # ---- Event: thumb up / down on any message bubble ----------------------
+    # ---- Event: thumb up / down on message bubble -------------------------
 
     def on_like(event: gr.LikeData, comment, sid, qa):
         rating = "up" if event.liked else "down"
@@ -234,6 +286,7 @@ def build_chat_tab(*, domain: str, index, base_prompt: str, examples: list[str])
                 session_id=sid,
                 domain=domain,
                 audience=qa.get("audience", ""),
+                model=qa.get("model", ""),
                 question=qa["question"],
                 answer=qa["answer"],
                 sources=qa.get("sources", []),
@@ -254,7 +307,8 @@ with gr.Blocks(title="Evidence-Based Medicine Assistants", theme=gr.themes.Soft(
     gr.Markdown(
         "# 🏥 Evidence-Based Medicine RAG Assistants\n"
         "Answers are grounded strictly in official methodology documentation. "
-        "Select your background with the radio buttons — the chatbot will adapt its language. "
+        "Select your background and preferred model, then ask follow-up questions freely — "
+        "the chatbot remembers the conversation. "
         "**Hover over any assistant reply** to rate it 👍 / 👎."
     )
 
