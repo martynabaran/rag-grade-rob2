@@ -42,9 +42,8 @@ from rag_core import get_embeddings, rag_answer_with_sources, build_llm
 
 MODELS: dict[str, str] = {
     "⚡ Gemini 2.5 Flash": "google/gemini-2.5-flash",
-    "🔬 Gemini 2.0 Flash Lite": "google/gemini-2.0-flash-lite",
     "🦙 Llama 3.1 8B": "meta-llama/llama-3.1-8b-instruct",
-    "🌬️ Mistral 7B": "mistralai/mistral-7b-instruct",
+    "🌬️ Mistral Nemo": "mistralai/mistral-nemo",
     "🔷 Qwen 2.5 7B": "qwen/qwen-2.5-7b-instruct",
 }
 MODEL_LABELS = list(MODELS.keys())
@@ -218,9 +217,7 @@ def build_chat_tab(*, domain: str, index, base_prompt: str, examples: list[str])
 
     # ---- Chatbot ----------------------------------------------------------
     chatbot = gr.Chatbot(
-        show_copy_button=True,
         height=440,
-        type="messages",
         label=f"{domain} Assistant",
     )
 
@@ -234,7 +231,10 @@ def build_chat_tab(*, domain: str, index, base_prompt: str, examples: list[str])
         )
         send_btn = gr.Button("Send ➤", variant="primary", scale=1, min_width=80)
 
-    gr.Examples(examples=examples, inputs=msg_box, label="Example questions")
+    gr.Markdown("**Example questions** — click to fill the input box:")
+    for example in examples:
+        ex_btn = gr.Button(example, size="sm", variant="secondary")
+        ex_btn.click(fn=lambda e=example: e, inputs=[], outputs=msg_box)
 
     # ---- Feedback ---------------------------------------------------------
     comment_box = gr.Textbox(

@@ -512,6 +512,24 @@ def rag_answer(
     return answer, contexts
 
 
+def _extract_content_str(content) -> str:
+    """Normalise a Gradio message content value to a plain string.
+
+    Gradio 5+ may pass content as a list of block dicts rather than a str.
+    """
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for block in content:
+            if isinstance(block, dict):
+                parts.append(block.get("text") or block.get("content") or "")
+            elif isinstance(block, str):
+                parts.append(block)
+        return " ".join(p for p in parts if p)
+    return str(content)
+
+
 def _build_history_block(history: list[dict], max_turns: int = 6) -> str:
     """
     Format the last `max_turns` messages from Gradio chat history into a
@@ -526,7 +544,7 @@ def _build_history_block(history: list[dict], max_turns: int = 6) -> str:
     lines = ["Conversation history:"]
     for msg in recent:
         role = "User" if msg["role"] == "user" else "Assistant"
-        content = msg["content"]
+        content = _extract_content_str(msg["content"])
         # Strip appended sources block so the LLM sees only the answer text
         marker = "\n\n---\n📚 **Sources:**"
         cut = content.find(marker)
@@ -563,7 +581,10 @@ def rag_answer_with_sources(
     # Enrich the retrieval query with the last two user turns so follow-up
     # questions like "What about imprecision?" resolve correctly in FAISS.
     if history:
-        prior_user = [m["content"] for m in history if m["role"] == "user"][-2:]
+        prior_user = [
+            _extract_content_str(m["content"])
+            for m in history if m["role"] == "user"
+        ][-2:]
         retrieval_query = " ".join(prior_user + [query])
     else:
         retrieval_query = query
