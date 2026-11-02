@@ -36,10 +36,10 @@ State of the evaluation pipeline before addressing requirement **R4** (20 easy /
 6. **RoB2 mismatch:** the RoB2 index is built from the 3 PDFs in `data/rob2_pdfs/`, but
    `generate_rob2_dataset.ipynb` generates questions from riskofbias.info web pages that are
    not in the index.
-7. **`rob2_rag.ipynb` deletes the RoB2 FAISS cache on every run** (`shutil.rmtree`), forcing a
-   full rebuild.
-8. **No out-of-scope questions**, so we cannot measure whether the chatbot correctly refuses
-   (relevant to R3).
+7. ~~**`rob2_rag.ipynb` deletes the RoB2 FAISS cache on every run**~~ — fixed in Phase 1.
+8. ~~**No out-of-scope questions**~~ — `evaluation/datasets/out_of_scope_questions.csv`
+   (30 questions: general, other medical, other research) was added in Phase 2. It still
+   needs to be included in the evaluation notebooks.
 
 ## Recommended actions
 

@@ -10,7 +10,8 @@ Features:
   - Multi-turn conversation context (history passed to retrieval + LLM)
   - Audience selector (radio buttons): Expert / Stakeholder / Layperson
   - Model selector (radio buttons): 5 models via OpenRouter
-  - Source links embedded in every assistant reply
+  - Source links embedded in every in-scope reply (none for out-of-scope questions);
+    partially up-to-date GRADE sources are flagged
   - Per-message thumbs up / down (hover over any reply to see them)
   - Optional free-text comment saved alongside the rating
   - All feedback appended to feedback.jsonl
@@ -35,6 +36,7 @@ import gradio as gr
 from langchain_community.vectorstores import FAISS
 
 from rag_core import get_embeddings, rag_answer_with_sources, build_llm
+from sources import GRADE_CACHE_DIR, ROB2_CACHE_DIR, GRADE_SOURCE_STATUS, STATUS_PARTIAL
 
 # ---------------------------------------------------------------------------
 # Available models (label shown in UI → OpenRouter model id)
@@ -126,11 +128,11 @@ ROB2_BASE_PROMPT = (
 
 print("Loading GRADE index...")
 grade_index = FAISS.load_local(
-    ".faiss_cache/grade", get_embeddings(), allow_dangerous_deserialization=True
+    GRADE_CACHE_DIR, get_embeddings(), allow_dangerous_deserialization=True
 )
 print("Loading RoB2 index...")
 rob2_index = FAISS.load_local(
-    ".faiss_cache/rob2", get_embeddings(), allow_dangerous_deserialization=True
+    ROB2_CACHE_DIR, get_embeddings(), allow_dangerous_deserialization=True
 )
 print("Ready — open http://127.0.0.1:7860")
 
@@ -177,12 +179,15 @@ def _build_prompt(base_prompt: str, audience: str) -> str:
     return base_prompt + AUDIENCE_SUFFIXES.get(audience, "")
 
 
-def _format_sources(sources: list[str]) -> str:
+def _format_sources(sources: list[str], status_map: dict[str, str]) -> str:
     if not sources:
         return ""
     lines = ["\n\n---\n📚 **Sources:**"]
     for src in sources:
-        lines.append(f"- [{src}]({src})" if src.startswith("http") else f"- `{src}`")
+        line = f"- [{src}]({src})" if src.startswith("http") else f"- `{src}`"
+        if status_map.get(src) == STATUS_PARTIAL:
+            line += " ⚠️ *partially up-to-date (GRADE Living Map)*"
+        lines.append(line)
     return "\n".join(lines)
 
 
@@ -190,7 +195,10 @@ def _format_sources(sources: list[str]) -> str:
 # UI factory — one call per domain tab
 # ---------------------------------------------------------------------------
 
-def build_chat_tab(*, domain: str, index, base_prompt: str, examples: list[str]):
+def build_chat_tab(
+    *, domain: str, index, base_prompt: str, examples: list[str],
+    status_map: dict[str, str] | None = None,
+):
     # Per-session state
     session_id = gr.State(lambda: str(uuid.uuid4()))
     last_qa = gr.State({
@@ -258,7 +266,7 @@ def build_chat_tab(*, domain: str, index, base_prompt: str, examples: list[str])
             system_prompt=system_prompt,
             history=history,          # ← conversation context
         )
-        full_answer = answer + _format_sources(sources)
+        full_answer = answer + _format_sources(sources, status_map or {})
         new_history = history + [
             {"role": "user", "content": message},
             {"role": "assistant", "content": full_answer},
@@ -322,6 +330,7 @@ with gr.Blocks(title="Evidence-Based Medicine Assistants", theme=gr.themes.Soft(
                 domain="GRADE",
                 index=grade_index,
                 base_prompt=GRADE_BASE_PROMPT,
+                status_map=GRADE_SOURCE_STATUS,
                 examples=[
                     "What are the four levels of certainty of evidence in GRADE?",
                     "What are the five domains for rating down certainty of evidence?",

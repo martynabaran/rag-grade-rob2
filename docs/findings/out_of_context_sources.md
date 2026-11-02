@@ -41,3 +41,37 @@ Constraints:
 - Out-of-scope questions (general knowledge, other medical topics): no "Sources" block.
 - In-scope questions from the evaluation set: answers still include sources; measure the
   false-refusal rate.
+
+## Implemented (Phase 2)
+
+Both checks are in `rag_core.rag_answer_with_sources()`:
+
+| Check | Behaviour |
+|---|---|
+| `MAX_RELEVANCE_DISTANCE = 1.35` | If the closest chunk is further away, the LLM is not called; `OUT_OF_SCOPE_ANSWER` is returned with no contexts and no sources. Pass `max_distance=None` to disable. |
+| `NO_ANSWER_MARKER` (`[NO_ANSWER]`) | Added to the system prompt. If the reply contains it, the marker is removed and no sources are returned (contexts are kept for evaluation). |
+
+The app additionally marks Partially Up-To-Date GRADE sources with a warning in the Sources
+block.
+
+### Threshold tuning
+
+`python tune_relevance_threshold.py` (embeddings only, no LLM calls) on the rebuilt indices:
+
+| Domain | In-scope questions | Max in-scope distance | Out-of-scope refused at 1.35 |
+|---|---|---|---|
+| GRADE | 1104 | 1.319 | 76.7% (23 / 30) |
+| RoB2 | 65 | 0.835 | 93.3% (28 / 30) |
+
+No in-scope question is refused by the threshold. All general-knowledge questions are refused
+by it; the questions that pass are close to the domain (e.g. "How do I calculate a sample size
+for a survey?", "How does chemotherapy work?") and are left to the `[NO_ANSWER]` marker.
+
+### Verified
+
+- Out-of-scope question in the app ("What is the capital of Poland?"): refusal, no Sources block.
+- Stubbed LLM: in-scope questions keep their sources; a `[NO_ANSWER]` reply returns no sources;
+  vague follow-ups still resolve through the conversation history.
+
+**Not yet verified:** how reliably each model in the app emits `[NO_ANSWER]` — needs a real
+API key; measure it with the out-of-scope set during Phase 4.

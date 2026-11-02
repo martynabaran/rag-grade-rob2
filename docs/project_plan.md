@@ -10,32 +10,36 @@ Owners are assigned at team meetings; tick tasks off as they are merged.
 - [ ] Ask the open questions listed in [instructor_requirements.md](instructor_requirements.md#open-questions-for-the-instructor)
       and record the answers there.
 
-## Phase 1 — Source cleanup (R1)
+## Phase 1 — Source cleanup (R1) — done
 
-**Owner:** _TBD_
+**Owner:** Martyna
 
-- [ ] Remove outdated PDFs 1, 3, 4, 5, 6, 7, 8, 14, 15 from `data/grade_pdfs/` and their
+- [x] Remove outdated PDFs 1, 3, 4, 5, 6, 7, 8, 14, 15 from `data/grade_pdfs/` and their
       JSON caches from `data/parsed_grade/`.
-- [ ] Apply the instructor's decision on PDFs 9 and 11 (mixed status).
-- [ ] Add a source status map (file/URL → `current` / `partially_up_to_date`) and store it in
-      chunk metadata.
-- [ ] Add missing Current GRADE Book pages to `GRADE_URLS` (indirectness, decision
+- [ ] Apply the instructor's decision on PDFs 9 and 11 (mixed status) — kept as partially
+      up-to-date until then.
+- [x] Add a source status map (`GRADE_SOURCE_STATUS` in `sources.py`) and store it in
+      chunk metadata (`metadata["status"]`).
+- [x] Add missing Current GRADE Book pages to `GRADE_URLS` (indirectness, decision
       thresholds, outcomes, EtD introduction, recommendations, history).
-- [ ] Rebuild `.faiss_cache/grade` and commit the new index.
-- [ ] Remove the unconditional `shutil.rmtree(".faiss_cache/rob2")` cell from `rob2_rag.ipynb`.
+- [x] Rebuild `.faiss_cache/grade` (14 pages + 34 PDFs, 1145 chunks) and commit the new index.
+- [x] Remove the unconditional `shutil.rmtree(".faiss_cache/rob2")` cell from `rob2_rag.ipynb`.
+- [ ] Optional: add Current guidance PDFs 42, 43, 45, 46.
 
 **Done when:** no Outdated source is in the GRADE index, and the index is rebuilt.
 
-## Phase 2 — Out-of-context answers without references (R3)
+## Phase 2 — Out-of-context answers without references (R3) — done
 
-**Owner:** _TBD_ · Details: [findings/out_of_context_sources.md](findings/out_of_context_sources.md)
+**Owner:** Martyna · Details: [findings/out_of_context_sources.md](findings/out_of_context_sources.md)
 
-- [ ] Add a relevance threshold using `similarity_search_with_score()` in
+- [x] Add a relevance threshold using `similarity_search_with_score()` in
       `rag_answer_with_sources()`.
-- [ ] Add an explicit "no answer" marker to the system prompt and return `sources = []`
+- [x] Add an explicit "no answer" marker to the system prompt and return `sources = []`
       when it is present.
-- [ ] Tune the threshold on in-scope vs. out-of-scope evaluation questions.
-- [ ] Optional: flag answers that rely on Partially Up-To-Date sources.
+- [x] Tune the threshold on in-scope vs. out-of-scope evaluation questions
+      (`tune_relevance_threshold.py`, `evaluation/datasets/out_of_scope_questions.csv`).
+- [x] Flag Partially Up-To-Date GRADE sources in the app's Sources block.
+- [ ] Measure the `[NO_ANSWER]` behaviour per model with a real API key (part of Phase 4).
 
 **Done when:** out-of-scope questions never show a "Sources" block, and in-scope answers
 still do.

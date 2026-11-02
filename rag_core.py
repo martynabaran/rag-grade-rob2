@@ -128,7 +128,7 @@ def _build_source_state(
     pdf_paths: list[str] | list[os.PathLike[str]] | None = None,
     source_status: dict[str, str] | None = None,
 ) -> dict:
-    state = {
+    state: dict = {
         "urls": list(urls or []),
         "pdfs": [str(Path(pdf_path)) for pdf_path in (pdf_paths or [])],
     }
@@ -524,6 +524,23 @@ SYSTEM_PROMPT = (
 )
 
 
+# Out-of-scope handling (used by rag_answer_with_sources)
+NO_ANSWER_MARKER = "[NO_ANSWER]"
+NO_ANSWER_INSTRUCTION = (
+    f"\n\nIf the context does not contain the information needed to answer the question, "
+    f"start your reply with {NO_ANSWER_MARKER} and briefly say that the question is outside "
+    "the available sources. Do not use this marker in any other case."
+)
+OUT_OF_SCOPE_ANSWER = (
+    "I could not find information about this in the knowledge base, so I cannot answer it. "
+    "Please ask a question about the topics covered by this assistant."
+)
+# Maximum L2 distance (all-MiniLM-L6-v2) between the query and its closest chunk for the
+# question to count as in scope. Tuned with tune_relevance_threshold.py: no in-scope
+# evaluation question exceeds it in either domain.
+MAX_RELEVANCE_DISTANCE = 1.35
+
+
 def rag_answer(
     query: str,
     index: FAISS,
@@ -606,19 +623,27 @@ def rag_answer_with_sources(
     k: int = 5,
     system_prompt: str = SYSTEM_PROMPT,
     history: list[dict] | None = None,
+    max_distance: float | None = MAX_RELEVANCE_DISTANCE,
 ) -> tuple[str, list[str], list[str]]:
     """
     Retrieve top-k chunks for `query`, generate an answer, and return sources.
+
+    Out-of-scope questions return no sources:
+      - if even the closest chunk is further than `max_distance`, the LLM is not
+        called and a fixed refusal is returned with no contexts;
+      - if the LLM replies with NO_ANSWER_MARKER, the marker is stripped.
 
     Args:
         history: optional Gradio-format message list for multi-turn context.
                  When provided, recent user turns enrich the FAISS query and
                  the conversation history is included in the LLM prompt.
+        max_distance: relevance threshold; None disables it.
 
     Returns:
         answer   — the LLM-generated answer string
         contexts — list of retrieved chunk texts (for evaluation)
-        sources  — deduplicated list of source identifiers from chunk metadata
+        sources  — deduplicated list of source identifiers from chunk metadata,
+                   empty when the question is out of scope
     """
     # Enrich the retrieval query with the last two user turns so follow-up
     # questions like "What about imprecision?" resolve correctly in FAISS.
@@ -631,7 +656,13 @@ def rag_answer_with_sources(
     else:
         retrieval_query = query
 
-    docs = index.similarity_search(retrieval_query, k=k)
+    results = index.similarity_search_with_score(retrieval_query, k=k)
+    if not results or (
+        max_distance is not None and min(score for _, score in results) > max_distance
+    ):
+        return OUT_OF_SCOPE_ANSWER, [], []
+
+    docs = [doc for doc, _ in results]
     contexts = [doc.page_content for doc in docs]
     sources = [
         s for s in dict.fromkeys(
@@ -643,13 +674,15 @@ def rag_answer_with_sources(
     context_block = "\n\n---\n\n".join(contexts)
     history_block = _build_history_block(history or [])
 
-    prompt = f"{system_prompt}\n\n"
+    prompt = f"{system_prompt}{NO_ANSWER_INSTRUCTION}\n\n"
     if history_block:
         prompt += f"{history_block}\n\n"
     prompt += f"Context:\n{context_block}\n\nQuestion: {query}\n\nAnswer:"
 
     response = llm.invoke(prompt)
-    answer = response.content if hasattr(response, "content") else str(response)
+    answer = _extract_content_str(getattr(response, "content", response))
+    if NO_ANSWER_MARKER in answer:
+        return answer.replace(NO_ANSWER_MARKER, "").strip(), contexts, []
     return answer, contexts, sources
 
 

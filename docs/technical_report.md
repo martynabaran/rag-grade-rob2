@@ -204,6 +204,8 @@ Stratified sample of Q&A pairs exported to pre-filled CSVs for manual annotation
 
 ```
 rag_core.py                  # Core RAG pipeline (scrape, chunk, index, answer)
+sources.py                   # Source lists, cache paths, GRADE source status
+tune_relevance_threshold.py  # Out-of-scope threshold tuning
 app.py                       # Gradio web application
 grade_rag.py / .ipynb        # GRADE-specific notebook + convenience functions
 rob2_rag.py / .ipynb         # RoB2-specific notebook + convenience functions

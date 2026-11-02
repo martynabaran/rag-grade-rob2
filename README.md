@@ -13,7 +13,7 @@ Project requirements, the work plan and audit findings are in [`docs/`](docs/REA
 
 ## Setup
 
-Requirements: Python 3.10+, Google Chrome (Selenium scraping of JS-rendered pages).
+Requirements: Python 3.10+, Gradio 6, Google Chrome (Selenium scraping of JS-rendered pages).
 
 ```bash
 pip install -r requirements.txt
@@ -43,12 +43,17 @@ Run from the repository root, in this order:
 6. `prepare_human_eval.ipynb` — pre-filled CSVs for human annotation
 
 `run_screening_eval.py` runs the GRADE chatbot on the screening questions.
+`tune_relevance_threshold.py` checks the out-of-scope relevance threshold (no LLM calls).
+
+To change the knowledge base, edit `sources.py`; the index is rebuilt automatically on the
+next run of `grade_rag.ipynb` / `rob2_rag.ipynb`.
 
 ## Repository structure
 
 ```
 app.py                         Gradio web app
 rag_core.py                    Shared RAG pipeline (scrape/parse, chunk, index, answer)
+sources.py                     Source URLs/PDF folders and GRADE source status
 grade_rag.ipynb / grade_rag.py GRADE chatbot (notebook + importable script)
 rob2_rag.ipynb / rob2_rag.py   RoB2 chatbot (notebook + importable script)
 generate_rob2_dataset.ipynb    RoB2 Q&A generation
@@ -56,6 +61,7 @@ automated_evaluation_extended.ipynb
 llm_judge.ipynb
 prepare_human_eval.ipynb
 run_screening_eval.py
+tune_relevance_threshold.py    Out-of-scope relevance threshold tuning
 data/
   grade_pdfs/, rob2_pdfs/      Source PDFs
   parsed_grade/, parsed_rob2/  Per-PDF parse cache (JSON)

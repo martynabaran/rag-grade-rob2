@@ -107,6 +107,8 @@ we do not scrape the GRADE Book *Indirectness* page). Candidates to add:
 
 ## Recommended actions
 
+Status: 1, 3 and the GRADE Book pages from 4 are done (see the project plan, Phase 1).
+
 1. Remove PDFs 1, 3, 4, 5, 6, 7, 8, 14, 15 and their `data/parsed_grade/*.json` caches,
    then rebuild `.faiss_cache/grade`.
 2. Decide on 9 and 11 with the instructor (mixed status).

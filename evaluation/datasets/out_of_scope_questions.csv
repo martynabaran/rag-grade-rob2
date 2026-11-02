@@ -1,0 +1,31 @@
+question,category
+What is the capital of Poland?,general
+Who won the FIFA World Cup in 2018?,general
+How do I bake sourdough bread?,general
+What is the boiling point of water at sea level?,general
+Can you recommend a good science fiction novel?,general
+What is the weather like in Paris in spring?,general
+How do I reverse a linked list in Python?,general
+What is the difference between a stock and a bond?,general
+Who painted the Mona Lisa?,general
+How many planets are in the solar system?,general
+Translate 'good morning' into Spanish.,general
+What are the rules of chess castling?,general
+How do I change a flat tyre?,general
+What is the speed of light?,general
+Write a short poem about autumn.,general
+What is the recommended dose of ibuprofen for a headache?,medical_other
+What are the symptoms of type 2 diabetes?,medical_other
+How is a broken arm treated?,medical_other
+What causes migraines?,medical_other
+Which vaccines should a newborn receive?,medical_other
+How long does it take to recover from COVID-19?,medical_other
+What is the normal resting heart rate for adults?,medical_other
+Should I take antibiotics for a common cold?,medical_other
+What foods are high in vitamin D?,medical_other
+How does chemotherapy work?,medical_other
+How do I register a clinical trial on ClinicalTrials.gov?,research_other
+How do I calculate a sample size for a survey?,research_other
+What is the best software for writing a thesis?,research_other
+How do I apply for an NIH research grant?,research_other
+What is the impact factor of The Lancet?,research_other
