@@ -23,22 +23,14 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from rag_core import get_pdf_paths, load_or_build_index, rag_answer, build_llm
+from sources import (
+    GRADE_URLS, GRADE_PDF_DIR, PARSED_GRADE_PDF_DIR, GRADE_CACHE_DIR, GRADE_SOURCE_STATUS,
+)
 
 # %% [markdown]
 # ## 1. Configuration
 
 # %%
-GRADE_URLS = [
-    "https://book.gradepro.org/guideline/overview-of-the-grade-approach",
-    "https://book.gradepro.org/guideline/the-development-methods-of-grade",
-    "https://book.gradepro.org/guideline/requirements-for-claiming-the-use-of-grade",
-    "https://book.gradepro.org/guideline/questions-about-interventions-diagnostic-test-prognosis-and-exposures",
-    "https://book.gradepro.org/guideline/risk-of-bias-randomized-trials",
-    "https://book.gradepro.org/guideline/inconsistency",
-    "https://book.gradepro.org/guideline/imprecision",
-    "https://book.gradepro.org/guideline/dissemination-bias",
-]
-
 GRADE_SYSTEM_PROMPT = (
     "You are an expert assistant specialising in the GRADE methodology for evidence-based "
     "healthcare guidelines. Answer the user's question based ONLY on the retrieved GRADE Book "
@@ -47,25 +39,22 @@ GRADE_SYSTEM_PROMPT = (
     "Use precise GRADE terminology (certainty of evidence, rating down/up, domains, etc.)."
 )
 
-GRADE_PDF_DIR = "data/grade_pdfs"
-PARSED_GRADE_PDF_DIR = "data/parsed_grade"
-CACHE_DIR = ".faiss_cache/grade"
-
 grade_pdf_paths = get_pdf_paths(GRADE_PDF_DIR)
 print(f"Found {len(grade_pdf_paths)} GRADE PDFs")
 
 # %% [markdown]
 # ## 2. Build / Load Index
 # 
-# First run scrapes all 8 GRADE Book pages (~40 s) and saves a local FAISS cache.  
+# First run scrapes all GRADE Book pages listed in `sources.py` (~1–2 min) and saves a local FAISS cache.  
 # Subsequent runs load from cache instantly.
 
 # %%
 index = load_or_build_index(
     urls=GRADE_URLS,
     pdf_paths=grade_pdf_paths,
-    cache_path=CACHE_DIR,
+    cache_path=GRADE_CACHE_DIR,
     parsed_pdf_cache_dir=PARSED_GRADE_PDF_DIR,
+    source_status=GRADE_SOURCE_STATUS,
 )
 llm = build_llm()
 print("Ready.")

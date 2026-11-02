@@ -27,21 +27,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from rag_core import get_pdf_paths, load_or_build_index, rag_answer, build_llm
+from sources import (
+    GRADE_URLS, GRADE_PDF_DIR, PARSED_GRADE_PDF_DIR, GRADE_CACHE_DIR, GRADE_SOURCE_STATUS,
+)
 
 # ---------------------------------------------------------------------------
-# GRADE config (mirrors grade_rag.py)
+# GRADE config (sources in sources.py, prompt mirrors grade_rag.py)
 # ---------------------------------------------------------------------------
-
-GRADE_URLS = [
-    "https://book.gradepro.org/guideline/overview-of-the-grade-approach",
-    "https://book.gradepro.org/guideline/the-development-methods-of-grade",
-    "https://book.gradepro.org/guideline/requirements-for-claiming-the-use-of-grade",
-    "https://book.gradepro.org/guideline/questions-about-interventions-diagnostic-test-prognosis-and-exposures",
-    "https://book.gradepro.org/guideline/risk-of-bias-randomized-trials",
-    "https://book.gradepro.org/guideline/inconsistency",
-    "https://book.gradepro.org/guideline/imprecision",
-    "https://book.gradepro.org/guideline/dissemination-bias",
-]
 
 GRADE_SYSTEM_PROMPT = (
     "You are an expert assistant specialising in the GRADE methodology for evidence-based "
@@ -51,9 +43,6 @@ GRADE_SYSTEM_PROMPT = (
     "Use precise GRADE terminology (certainty of evidence, rating down/up, domains, etc.)."
 )
 
-GRADE_PDF_DIR = "data/grade_pdfs"
-PARSED_GRADE_PDF_DIR = "data/parsed_grade"
-CACHE_DIR = ".faiss_cache/grade"
 
 INPUT_CSV = Path("evaluation/datasets/screening_questions.csv")
 OUTPUT_CSV = Path("evaluation/results/screening/screening_answers.csv")
@@ -70,8 +59,9 @@ def main():
     index = load_or_build_index(
         urls=GRADE_URLS,
         pdf_paths=grade_pdf_paths,
-        cache_path=CACHE_DIR,
+        cache_path=GRADE_CACHE_DIR,
         parsed_pdf_cache_dir=PARSED_GRADE_PDF_DIR,
+        source_status=GRADE_SOURCE_STATUS,
     )
     llm = build_llm()
     print("Index ready.\n")

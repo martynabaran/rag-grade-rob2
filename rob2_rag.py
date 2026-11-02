@@ -21,6 +21,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from rag_core import get_pdf_paths, load_or_build_index, rag_answer, build_llm
+from sources import ROB2_PDF_DIR, PARSED_ROB2_PDF_DIR, ROB2_CACHE_DIR
 
 # %% [markdown]
 # ## 1. Configuration
@@ -37,10 +38,6 @@ ROB2_SYSTEM_PROMPT = (
     "Use precise RoB2 terminology (signalling questions, bias judgments: Low/Some concerns/High, etc.)."
 )
 
-ROB2_PDF_DIR = "data/rob2_pdfs"
-PARSED_ROB2_PDF_DIR = "data/parsed_rob2"
-CACHE_DIR = ".faiss_cache/rob2"
-
 rob2_pdf_paths = get_pdf_paths(ROB2_PDF_DIR)
 print(f"Found {len(rob2_pdf_paths)} RoB2 PDFs")
 
@@ -54,14 +51,9 @@ print(f"Found {len(rob2_pdf_paths)} RoB2 PDFs")
 # > If a page returns empty text, increase `wait_time` below.
 
 # %%
-import shutil
-shutil.rmtree(".faiss_cache/rob2", ignore_errors=True)                                               
-print("Cache cleared.")
-
-# %%
 index = load_or_build_index(
     pdf_paths=rob2_pdf_paths,
-    cache_path=CACHE_DIR,
+    cache_path=ROB2_CACHE_DIR,
     parsed_pdf_cache_dir=PARSED_ROB2_PDF_DIR,
 )
 llm = build_llm()

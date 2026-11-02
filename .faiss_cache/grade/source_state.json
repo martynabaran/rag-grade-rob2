@@ -7,16 +7,19 @@
     "https://book.gradepro.org/guideline/risk-of-bias-randomized-trials",
     "https://book.gradepro.org/guideline/inconsistency",
     "https://book.gradepro.org/guideline/imprecision",
-    "https://book.gradepro.org/guideline/dissemination-bias"
+    "https://book.gradepro.org/guideline/dissemination-bias",
+    "https://book.gradepro.org/guideline/indirectness",
+    "https://book.gradepro.org/guideline/decision-thresholds",
+    "https://book.gradepro.org/guideline/outcomes",
+    "https://book.gradepro.org/guideline/the-history-and-evolution-of-grade",
+    "https://book.gradepro.org/guideline/introduction-to-the-evidence-to-decision-frameworks",
+    "https://book.gradepro.org/guideline/grade-recommendations"
   ],
   "pdfs": [
-    "data/grade_pdfs/1.pdf",
     "data/grade_pdfs/10.pdf",
     "data/grade_pdfs/11.pdf",
     "data/grade_pdfs/12.pdf",
     "data/grade_pdfs/13.pdf",
-    "data/grade_pdfs/14.pdf",
-    "data/grade_pdfs/15.pdf",
     "data/grade_pdfs/16.pdf",
     "data/grade_pdfs/17.pdf",
     "data/grade_pdfs/18.pdf",
@@ -33,7 +36,6 @@
     "data/grade_pdfs/27.pdf",
     "data/grade_pdfs/28.pdf",
     "data/grade_pdfs/29.pdf",
-    "data/grade_pdfs/3.pdf",
     "data/grade_pdfs/30.pdf",
     "data/grade_pdfs/31.pdf",
     "data/grade_pdfs/32.pdf",
@@ -44,14 +46,20 @@
     "data/grade_pdfs/37.pdf",
     "data/grade_pdfs/38.pdf",
     "data/grade_pdfs/39.pdf",
-    "data/grade_pdfs/4.pdf",
     "data/grade_pdfs/40.pdf",
     "data/grade_pdfs/41.pdf",
     "data/grade_pdfs/44.pdf",
-    "data/grade_pdfs/5.pdf",
-    "data/grade_pdfs/6.pdf",
-    "data/grade_pdfs/7.pdf",
-    "data/grade_pdfs/8.pdf",
     "data/grade_pdfs/9.pdf"
-  ]
+  ],
+  "status": {
+    "10.pdf": "partially_up_to_date",
+    "11.pdf": "partially_up_to_date",
+    "12.pdf": "partially_up_to_date",
+    "13.pdf": "partially_up_to_date",
+    "19.pdf": "partially_up_to_date",
+    "20.pdf": "partially_up_to_date",
+    "32.pdf": "partially_up_to_date",
+    "33.pdf": "partially_up_to_date",
+    "9.pdf": "partially_up_to_date"
+  }
 }

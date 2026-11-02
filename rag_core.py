@@ -126,11 +126,15 @@ def _index_state_path(cache_path: str | os.PathLike[str]) -> Path:
 def _build_source_state(
     urls: list[str] | None = None,
     pdf_paths: list[str] | list[os.PathLike[str]] | None = None,
+    source_status: dict[str, str] | None = None,
 ) -> dict:
-    return {
+    state = {
         "urls": list(urls or []),
         "pdfs": [str(Path(pdf_path)) for pdf_path in (pdf_paths or [])],
     }
+    if source_status:
+        state["status"] = dict(sorted(source_status.items()))
+    return state
 
 
 def _save_source_state(cache_path: str | os.PathLike[str], state: dict) -> None:
@@ -150,6 +154,7 @@ def _classify_index_cache_state(
     cache_path: str | os.PathLike[str],
     urls: list[str] | None = None,
     pdf_paths: list[str] | list[os.PathLike[str]] | None = None,
+    source_status: dict[str, str] | None = None,
 ) -> tuple[str, list[str]]:
     cache_dir = Path(cache_path)
     if not cache_dir.is_dir():
@@ -159,11 +164,16 @@ def _classify_index_cache_state(
     if saved_state is None:
         return "rebuild", []
 
-    current_state = _build_source_state(urls=urls, pdf_paths=pdf_paths)
+    current_state = _build_source_state(
+        urls=urls, pdf_paths=pdf_paths, source_status=source_status
+    )
     if saved_state == current_state:
         return "current", []
 
     if saved_state.get("urls", []) != current_state.get("urls", []):
+        return "rebuild", []
+
+    if saved_state.get("status") != current_state.get("status"):
         return "rebuild", []
 
     saved_pdfs = saved_state.get("pdfs", [])
@@ -322,6 +332,12 @@ def load_pdfs_and_chunk(
             pdf_docs = parse_pdf_to_documents(pdf_path)
         except Exception as exc:
             print(f"  WARNING: failed to parse {pdf_path}: {exc}")
+            # Fall back to an existing parse (e.g. mtimes reset by a git checkout)
+            if cache_path and cache_path.exists():
+                print(f"  Using existing parsed cache: {cache_path}")
+                pdf_docs = load_parsed_pdf_documents(cache_path)
+                documents.extend(pdf_docs)
+                print(f"    -> {len(pdf_docs)} documents")
             continue
 
         if cache_path:
@@ -393,6 +409,17 @@ def scrape_and_chunk(
 # Index
 # ---------------------------------------------------------------------------
 
+def _tag_source_status(
+    documents: list[Document],
+    source_status: dict[str, str] | None,
+) -> list[Document]:
+    """Store each chunk's up-to-date status (default "current") in its metadata."""
+    status_map = source_status or {}
+    for doc in documents:
+        doc.metadata["status"] = status_map.get(doc.metadata.get("source", ""), "current")
+    return documents
+
+
 def build_index(documents: list[Document]) -> FAISS:
     """Build a FAISS vector index from a list of Documents."""
     return FAISS.from_documents(documents, get_embeddings())
@@ -403,6 +430,7 @@ def load_or_build_index(
     pdf_paths: list[str] | list[os.PathLike[str]] | None = None,
     cache_path: str | None = None,
     parsed_pdf_cache_dir: str | os.PathLike[str] | None = None,
+    source_status: dict[str, str] | None = None,
     **scrape_kwargs,
 ) -> FAISS:
     """
@@ -410,12 +438,16 @@ def load_or_build_index(
     If the cache matches current sources, load it.
     If only new PDFs were added, append them to the existing index.
     Otherwise rebuild from scratch.
+
+    `source_status` maps a source (PDF file name or URL) to its up-to-date status;
+    it is stored as `metadata["status"]` on every chunk (default "current").
     """
     if cache_path:
         cache_status, new_pdf_paths = _classify_index_cache_state(
             cache_path,
             urls=urls,
             pdf_paths=pdf_paths,
+            source_status=source_status,
         )
 
         if cache_status == "current":
@@ -435,9 +467,11 @@ def load_or_build_index(
                 parsed_cache_dir=parsed_pdf_cache_dir,
             )
             if new_docs:
-                index.add_documents(new_docs)
+                index.add_documents(_tag_source_status(new_docs, source_status))
                 index.save_local(cache_path)
-                source_state = _build_source_state(urls=urls, pdf_paths=pdf_paths)
+                source_state = _build_source_state(
+                    urls=urls, pdf_paths=pdf_paths, source_status=source_status
+                )
                 _save_source_state(cache_path, source_state)
                 print(f"Index updated and saved to: {cache_path}")
             return index
@@ -458,11 +492,19 @@ def load_or_build_index(
     if not docs:
         raise ValueError("No sources provided. Pass at least one URL or PDF path.")
 
-    index = build_index(docs)
+    index = build_index(_tag_source_status(docs, source_status))
 
-    if cache_path:
+    # Do not cache an incomplete index: the next run would treat it as current.
+    loaded = {doc.metadata.get("source") for doc in docs}
+    missing = [url for url in (urls or []) if url not in loaded]
+    missing += [p.name for p in map(Path, pdf_paths or []) if p.name not in loaded]
+    if missing:
+        print(f"WARNING: {len(missing)} source(s) failed to load, index not cached: {missing}")
+    elif cache_path:
         index.save_local(cache_path)
-        source_state = _build_source_state(urls=urls, pdf_paths=pdf_paths)
+        source_state = _build_source_state(
+            urls=urls, pdf_paths=pdf_paths, source_status=source_status
+        )
         _save_source_state(cache_path, source_state)
         print(f"Index saved to: {cache_path}")
 
