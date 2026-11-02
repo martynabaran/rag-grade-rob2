@@ -174,13 +174,13 @@ Gradio 5's built-in `chatbot.like()` event renders thumbs up/down on message bub
 | Complexity | Flesch-Kincaid, sentence length, vocabulary richness |
 | LLM-based | G-Eval (GPT-style scoring prompt) |
 
-Results saved as CSVs in `evaluation_details/` following the naming pattern `{metric}_{chat_model}_{eval_model}.csv`.
+Results saved as CSVs in `evaluation/results/` following the naming pattern `{metric}_{chat_model}_{eval_model}.csv`.
 
 ### LLM Judge (`llm_judge.ipynb`)
 Two independent LLM judges score each answer on Accuracy, Completeness, and Faithfulness (1–5 scale). Cohen's Kappa measures inter-judge agreement. Disagreements flag ambiguous questions.
 
 ### Human Evaluation (`prepare_human_eval.ipynb`)
-Stratified sample of Q&A pairs exported to pre-filled CSVs for manual annotation. Annotation guide in `evaluation_details/human_eval/annotation_guide.md`.
+Stratified sample of Q&A pairs exported to pre-filled CSVs for manual annotation. Annotation guide in `evaluation/human_eval/annotation_guide.md`.
 
 ---
 
@@ -223,14 +223,13 @@ data/
   rob2_pdfs/                 # Source PDFs for RoB2
   parsed_grade/              # Per-PDF JSON parse cache
   parsed_rob2/
-evaluation_details/
-  evaluation_gradebook/
-  evaluation_rob2/
-  llm_judge/
-  human_eval/
+evaluation/
+  datasets/                  # Question/answer datasets (GRADE, RoB2, screening)
+  results/                   # Metric CSVs per domain / run
+  human_eval/                # Annotation guide + pre-filled annotation CSVs
+docs/                        # Requirements, plan, findings, this report
+legacy/                      # Previous agentic/PDF-paper pipeline (not maintained)
 feedback.jsonl               # Live user feedback log
-CLAUDE.md                    # Claude Code guidance
-TECHNICAL_REPORT.md          # This file
 ```
 
 ---

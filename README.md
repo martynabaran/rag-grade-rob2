@@ -1,31 +1,70 @@
-# Agentic RAG: A Framework for Context-Based Chatbots
+# GRADE & RoB2 RAG Chatbots
 
-This repository contains the source code and evaluation framework for the Bachelor of Science Thesis: **"Agentic RAG: A Framework for Context-Based Chatbots"**.
+Retrieval-Augmented Generation chatbots for two medical methodology domains:
 
-The project implements an autonomous **Agentic Retrieval-Augmented Generation (RAG)** system designed to handle complex scientific and medical queries. Unlike traditional linear RAG pipelines, this system utilizes a multi-agent architecture to orchestrate retrieval, process visual data (tables/figures), and enforce strict adherence to context to minimize hallucinations.
+- **GRADE** — methodology for rating certainty of evidence and developing healthcare guidelines
+  (GRADE Book pages + GRADE guideline articles).
+- **RoB2** — Cochrane Risk of Bias 2.0 tool for randomised trials.
 
-## Installation & Setup
+Each chatbot answers strictly from a local FAISS index built from its sources. The project
+includes a Gradio web app and an automated + human evaluation pipeline.
 
-### Prerequisites
-*   Python 3.10+
-*   **Docker Desktop** (required for running the GROBID parser).
-*   Chrome Browser (for Selenium web scraping).
+Project requirements, the work plan and audit findings are in [`docs/`](docs/README.md).
 
-### 1. Start the GROBID Service
-The system relies on [GROBID](https://github.com/kermitt2/grobid) to parse PDF structures (headers, sections, citations). GROBID instance must be running locally before starting the chatbot.
+## Setup
 
-The following command starts the server:
+Requirements: Python 3.10+, Google Chrome (Selenium scraping of JS-rendered pages).
 
 ```bash
-docker run -t --rm -p 8070:8070 lfoppiano/grobid:0.7.3
+pip install -r requirements.txt
+cp .env.example .env   # set OPENROUTER_API_KEY
 ```
 
-## Key Features
+All LLM calls go through [OpenRouter](https://openrouter.ai); model names use the
+`provider/model-name` format.
 
-*   **Multi-Agent Orchestration:** Uses `LangGraph` to manage state and coordination between the Retriever, Image Analyst, and Answer Generator agents.
-*   **Dual-Domain Support:**
-    *   **Unstructured Data:** Ingests and analyzes PDF research papers (Text + Figures).
-    *   **Structured Data:** Scrapes and processes web-based medical guidelines (e.g., GRADE Book).
-*   **Multimodal Capabilities:** Detects questions about charts/tables, extracts the images from PDFs, and generates descriptions.
-*   **Strict Context Adherence:** Engineered system prompts designed to refuse out-of-domain questions (e.g., "Capital of Poland") to ensure scientific rigor.
-*   **Hybrid Evaluation:** Includes a comprehensive evaluation setup using **RAGAS** metrics and NLP complexity scores.
+## Running the app
+
+```bash
+python app.py
+```
+
+Opens at http://127.0.0.1:7860. Indices are loaded from `.faiss_cache/` (built on first run).
+
+## Running the notebooks
+
+Run from the repository root, in this order:
+
+1. `grade_rag.ipynb` — builds/loads the GRADE index, defines `ask_grade()` / `get_grade_contexts()`
+2. `rob2_rag.ipynb` — builds/loads the RoB2 index, defines `ask_rob2()` / `get_rob2_contexts()`
+3. `generate_rob2_dataset.ipynb` — generates RoB2 Q&A pairs (run once)
+4. `automated_evaluation_extended.ipynb` — RAGAS, ROUGE, BLEU, semantic similarity, G-Eval
+5. `llm_judge.ipynb` — two-judge LLM evaluation with Cohen's Kappa
+6. `prepare_human_eval.ipynb` — pre-filled CSVs for human annotation
+
+`run_screening_eval.py` runs the GRADE chatbot on the screening questions.
+
+## Repository structure
+
+```
+app.py                         Gradio web app
+rag_core.py                    Shared RAG pipeline (scrape/parse, chunk, index, answer)
+grade_rag.ipynb / grade_rag.py GRADE chatbot (notebook + importable script)
+rob2_rag.ipynb / rob2_rag.py   RoB2 chatbot (notebook + importable script)
+generate_rob2_dataset.ipynb    RoB2 Q&A generation
+automated_evaluation_extended.ipynb
+llm_judge.ipynb
+prepare_human_eval.ipynb
+run_screening_eval.py
+data/
+  grade_pdfs/, rob2_pdfs/      Source PDFs
+  parsed_grade/, parsed_rob2/  Per-PDF parse cache (JSON)
+.faiss_cache/grade, rob2/      FAISS indices
+evaluation/
+  datasets/                    Evaluation questions and reference answers
+  results/                     Metric CSVs (grade, rob2, grade_initial, screening, llm_judge)
+  human_eval/                  Annotation guide and annotation CSVs
+docs/                          Requirements, plan, findings, technical report
+legacy/                        Earlier agentic pipeline evaluated on ML papers (not maintained)
+feedback.jsonl                 User feedback collected by the app
+```

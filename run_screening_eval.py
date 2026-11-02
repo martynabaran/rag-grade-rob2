@@ -2,8 +2,8 @@
 run_screening_eval.py
 
 Runs the GRADE RAG chatbot on all 17 questions from
-  evaluation/Screening questions(Arkusz1).csv
-and saves results to evaluation/screening_answers.csv.
+  evaluation/datasets/screening_questions.csv
+and saves results to evaluation/results/screening/screening_answers.csv.
 
 Usage:
     python run_screening_eval.py
@@ -55,8 +55,8 @@ GRADE_PDF_DIR = "data/grade_pdfs"
 PARSED_GRADE_PDF_DIR = "data/parsed_grade"
 CACHE_DIR = ".faiss_cache/grade"
 
-INPUT_CSV = Path("evaluation/Screening questions(Arkusz1).csv")
-OUTPUT_CSV = Path("evaluation/screening_answers.csv")
+INPUT_CSV = Path("evaluation/datasets/screening_questions.csv")
+OUTPUT_CSV = Path("evaluation/results/screening/screening_answers.csv")
 
 # ---------------------------------------------------------------------------
 # Main
