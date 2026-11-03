@@ -3,20 +3,20 @@
 Work plan for meeting the [instructor requirements](instructor_requirements.md).
 Owners are assigned at team meetings; tick tasks off as they are merged.
 
-## Phase 0 — Clarify scope (first class)
+## Phase 0 - Clarify scope (first class)
 
 - [ ] Present the source audit ([findings/grade_source_audit.md](findings/grade_source_audit.md)).
 - [ ] Present the current evaluation state ([findings/evaluation_audit.md](findings/evaluation_audit.md)).
 - [ ] Ask the open questions listed in [instructor_requirements.md](instructor_requirements.md#open-questions-for-the-instructor)
       and record the answers there.
 
-## Phase 1 — Source cleanup (R1) — done
+## Phase 1 - Source cleanup (R1) - done
 
 **Owner:** Martyna
 
 - [x] Remove outdated PDFs 1, 3, 4, 5, 6, 7, 8, 14, 15 from `data/grade_pdfs/` and their
       JSON caches from `data/parsed_grade/`.
-- [ ] Apply the instructor's decision on PDFs 9 and 11 (mixed status) — kept as partially
+- [ ] Apply the instructor's decision on PDFs 9 and 11 (mixed status) - kept as partially
       up-to-date until then.
 - [x] Add a source status map (`GRADE_SOURCE_STATUS` in `sources.py`) and store it in
       chunk metadata (`metadata["status"]`).
@@ -28,7 +28,7 @@ Owners are assigned at team meetings; tick tasks off as they are merged.
 
 **Done when:** no Outdated source is in the GRADE index, and the index is rebuilt.
 
-## Phase 2 — Out-of-context answers without references (R3) — done
+## Phase 2 - Out-of-context answers without references (R3) - done
 
 **Owner:** Martyna · Details: [findings/out_of_context_sources.md](findings/out_of_context_sources.md)
 
@@ -44,16 +44,16 @@ Owners are assigned at team meetings; tick tasks off as they are merged.
 **Done when:** out-of-scope questions never show a "Sources" block, and in-scope answers
 still do.
 
-## Phase 3 — Backend / frontend split (R2)
+## Phase 3 - Backend / frontend split (R2)
 
 **Owner:** _TBD_
 
-- [ ] `backend/` — FastAPI service that loads both FAISS indices and the LLM cache once at
+- [ ] `backend/` - FastAPI service that loads both FAISS indices and the LLM cache once at
       startup and exposes:
-  - `POST /chat` — `{domain, question, audience, model, history}` → `{answer, sources, contexts}`
-  - `POST /feedback` — stores a rating in `feedback.jsonl`
+  - `POST /chat` - `{domain, question, audience, model, history}` → `{answer, sources, contexts}`
+  - `POST /feedback` - stores a rating in `feedback.jsonl`
   - `GET /health`, `GET /models`
-- [ ] `frontend/` — Gradio UI (current layout, audience and model selectors, feedback) that
+- [ ] `frontend/` - Gradio UI (current layout, audience and model selectors, feedback) that
       calls the backend over HTTP; backend address from `BACKEND_URL`.
 - [ ] Keep `rag_core.py` as the shared library used by the backend and notebooks.
 - [ ] `docker-compose.yml` with two services (`backend`, `frontend`), plus run instructions
@@ -63,7 +63,7 @@ still do.
 **Done when:** backend and frontend start as two processes on different ports and the full
 chat + feedback flow works through the API.
 
-## Phase 4 — Extended evaluation by difficulty (R4)
+## Phase 4 - Extended evaluation by difficulty (R4)
 
 **Owner:** _TBD_ · Details: [findings/evaluation_audit.md](findings/evaluation_audit.md)
 
